@@ -13,7 +13,6 @@ let page = 1;
 let currentQuery = '';
 let totalImagesFound = 0;
 
-
 function displayImages(images) {
   images.forEach(image => {
     const card = document.createElement('div');
@@ -41,7 +40,6 @@ function displayImages(images) {
     gallery.appendChild(card);
   });
 
- 
   const lightbox = new SimpleLightbox('.gallery a', {
     captionPosition: 'outside', 
   });
@@ -49,8 +47,7 @@ function displayImages(images) {
   lightbox.refresh();
 }
 
-
-async function searchImages(query) {
+async function fetchImages(query, page = 1) {
   try {
     const response = await axios.get('https://pixabay.com/api/', {
       params: {
@@ -63,20 +60,23 @@ async function searchImages(query) {
         per_page: 40 
       }
     });
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to fetch images from Pixabay.');
+  }
+}
 
-    const data = response.data;
-    if (data.hits.length === 0) {
-      Notiflix.Notify.failure('Sorry, there are no images matching your search query. Please try again.');
+async function searchImages(query) {
+  try {
+    const searchData = await fetchImages(query);
+    if (searchData.hits.length === 0) {
+      Notiflix.Notify.failure('No images found. Please try another search query.');
     } else {
-      totalImagesFound += data.hits.length; 
-      displayImages(data.hits);
-      page++;
-      if (data.totalHits <= page * 40) {
-        loadMoreBtn.style.display = 'none';
-        notifySuccess(`Hooray! We found ${totalImagesFound} images.`);
-      } else {
-        loadMoreBtn.style.display = 'block';
-      }
+      totalImagesFound = searchData.totalHits;
+      displayImages(searchData.hits);
+      Notiflix.Notify.success(`Hooray! ${totalImagesFound} images found.`);
+      loadMoreBtn.style.display = 'block';
+      loadMoreBtn.dataset.page = 1;
     }
   } catch (error) {
     console.error('An error occurred:', error);
@@ -84,19 +84,38 @@ async function searchImages(query) {
   }
 }
 
-
-form.addEventListener('submit', function (event) {
+async function loadMoreImages(event) {
   event.preventDefault();
-  gallery.innerHTML = ''; 
-  page = 1;
-  totalImagesFound = 0; 
-  const formData = new FormData(event.target);
-  currentQuery = formData.get('searchQuery');
-  searchImages(currentQuery);
-});
+  const query = currentQuery;
+  const currentPage = parseInt(event.target.dataset.page);
+  const nextPage = currentPage + 1;
 
-loadMoreBtn.addEventListener('click', function () {
-  searchImages(currentQuery);
-});
+  try {
+    const searchData = await fetchImages(query, nextPage);
+    if (searchData.hits.length === 0) {
+      Notiflix.Notify.info('No more images found.');
+    } else {
+      displayImages(searchData.hits);
+      event.target.dataset.page = nextPage;
+    }
+  } catch (error) {
+    console.error('An error occurred:', error);
+    Notiflix.Notify.failure('An error occurred while loading more images. Please try again later.');
+  }
+}
 
-loadMoreBtn.style.display = 'none';
+function initApp() {
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    gallery.innerHTML = '';
+    page = 1;
+    const formData = new FormData(event.target);
+    currentQuery = formData.get('searchQuery');
+    searchImages(currentQuery);
+  });
+
+  loadMoreBtn.addEventListener('click', loadMoreImages);
+  loadMoreBtn.style.display = 'none';
+}
+
+initApp();
