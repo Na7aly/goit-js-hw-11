@@ -62,4 +62,16 @@ body {
   .info p {
     margin: 5px 0;
   }
-  
+  .load-more-button{
+    display: flex;
+    justify-content: center;
+    padding-top: 40px;
+  }
+  button.load-more{
+    background-color: #007bff;
+    color:#fff;
+    padding: 10px;
+    border: none;
+    border-radius: 3px;
+
+  }
